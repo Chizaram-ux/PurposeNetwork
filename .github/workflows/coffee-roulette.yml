@@ -1,0 +1,84 @@
+name: Coffee Roulette pairing
+
+on:
+  # Runs automatically every Monday at 13:00 UTC (9am Eastern in summer, 8am in winter).
+  schedule:
+    - cron: "0 13 * * 1"
+  # Also runnable on demand from the Actions tab, for an extra round or a re-run.
+  workflow_dispatch:
+    inputs:
+      require_overlap:
+        description: Only pair people who share an availability slot
+        type: boolean
+        default: false
+      seed:
+        description: Optional seed for a reproducible shuffle (leave blank for random)
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: coffee-roulette
+  cancel-in-progress: false
+
+jobs:
+  pair:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run the pairing script
+        env:
+          # On a scheduled run these are empty, so the script uses its defaults.
+          REQUIRE_OVERLAP: ${{ inputs.require_overlap }}
+          SEED: ${{ inputs.seed }}
+        run: |
+          set -o pipefail
+          ARGS=()
+          if [ "$REQUIRE_OVERLAP" = "true" ]; then
+            ARGS+=(--require-overlap)
+          fi
+          if [ -n "$SEED" ]; then
+            ARGS+=(--seed "$SEED")
+          fi
+          python pair.py "${ARGS[@]}" | tee pairings.txt
+
+      - name: Publish the pairings to the run summary
+        run: |
+          {
+            echo "## Coffee Roulette pairings"
+            echo
+            echo '```'
+            cat pairings.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep a copy of the pairings as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pairings
+          path: pairings.txt
+          retention-days: 90
+
+      - name: Commit the updated history.json
+        run: |
+          if git diff --quiet -- history.json; then
+            echo "history.json did not change; nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add history.json
+          git commit -m "Record coffee roulette round $(date -u +%Y-%m-%d)"
+          git push
