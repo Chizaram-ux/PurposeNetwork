@@ -1,1 +1,18 @@
-{"rounds": [], "pairs_seen": []}
+{
+  "rounds": [
+    {
+      "date": "2026-08-03",
+      "pairs": [
+        "Chizaram Agbanelo | Maya Hollander",
+        "Isabella Tang | Maya Hollander",
+        "Chizaram Agbanelo | Isabella Tang"
+      ],
+      "unmatched": []
+    }
+  ],
+  "pairs_seen": [
+    "Chizaram Agbanelo | Isabella Tang",
+    "Chizaram Agbanelo | Maya Hollander",
+    "Isabella Tang | Maya Hollander"
+  ]
+}
