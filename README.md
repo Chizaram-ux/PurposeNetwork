@@ -34,11 +34,11 @@ Sharing at least one slot is worth points, and `--require-overlap` makes it mand
 
 ## Participants file
 
-`participants.csv` has the columns `name`, `entity`, `team`, `format`, `availability` and `topics`:
+`participants.csv` has the columns `name`, `entity`, `team`, `format`, `availability`, `topics` and `email`:
 
 ```
-name,entity,team,format,availability,topics
-Maya Hollander,Purpose Unlimited,People & Culture,Online,Mon PM;Wed PM;Fri PM,Career journey;What you do at Purpose;Advice
+name,entity,team,format,availability,topics,email
+Maya Hollander,Purpose Unlimited,People & Culture,Online,Mon PM;Wed PM;Fri PM,Career journey;What you do at Purpose;Advice,maya.hollander@example.com
 ```
 
 ## Running a round
@@ -49,6 +49,7 @@ python3 pair.py --require-overlap   # only pair people who share a time slot
 python3 pair.py --seed 42           # reproducible tie-breaking
 python3 pair.py --explain           # show the score and reasons behind each match
 python3 pair.py --no-history        # preview a round without reading or updating history.json
+python3 pair.py --emails mail.json  # also write the invitation payload for Power Automate
 ```
 
 Flags combine, for example `python pair.py --require-overlap --explain`.
@@ -73,6 +74,16 @@ Coffee Roulette pairings for 2026-08-05
 - `pair.py` — the scoring and pairing script.
 - `participants.csv` — the roster: entity, team, chat format, availability and topics.
 - `history.json` — completed rounds and every pair already seen. Starts empty and is updated after each round unless `--no-history` is used.
+- `docs/automation.md` — how a round runs on its own, and how the emails go out.
+
+## Emailing the pairings
+
+`--emails FILE` writes the round as JSON: one invitation per group, with the
+recipients, subject and body already assembled. The scheduled Action writes
+`pairings.json` on every run and posts it to a Power Automate flow, which sends
+the intros from Outlook. Addresses come from the `email` column; anyone missing
+one is reported under `needsEmailAddress` rather than being quietly dropped.
+See [docs/automation.md](docs/automation.md) for the flow setup.
 
 ## Keeping the roster up to date
 
