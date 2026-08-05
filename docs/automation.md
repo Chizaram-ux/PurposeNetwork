@@ -6,40 +6,76 @@ How a round actually happens, and which parts run without anyone touching them.
 
 | Piece | Lives in | Responsibility |
 | --- | --- | --- |
-| Purpose-Network form | Microsoft Forms | collects entity, team, chat format, availability and topics |
-| `participants.csv` | this repo | the roster the pairing engine reads |
-| `pair.py` | this repo | scores every possible pair and builds the round |
-| `history.json` | this repo | every pair already seen, so repeats are avoided |
-| `.github/workflows/coffee-roulette.yml` | GitHub Actions | runs the round on a schedule and records it |
-| Form-to-roster flow | Power Automate | was meant to append new sign-ups to the roster |
+| Sign-up form | `app/static/index.html` | collects entity, team, chat format, work email, availability and topics |
+| Postgres | your database host | the roster and every round ever run |
+| `pair.py` | this repo | scores every possible pair, builds the round, writes the invitations |
+| `app/` | this repo | the API, the page, and the database adapters |
+| `.github/workflows/coffee-roulette.yml` | GitHub Actions | runs the round on a schedule and posts the invitations |
+| Mail flow | Power Automate | receives `pairings.json` and sends the intros from Outlook |
+| `participants.csv`, `history.json` | this repo | the original file-based store, kept for reference |
 
 ## What runs on its own
 
-The workflow runs every Monday at 13:00 UTC (9am Eastern in summer, 8am in winter) and can also be started by hand from the Actions tab, where it offers a `require_overlap` checkbox and an optional `seed`. Each run checks out the repo, runs `pair.py`, prints the pairings into the run summary, uploads them as a `pairings` artifact, and commits the updated `history.json` as `github-actions[bot]`.
+The workflow runs every Monday at 13:00 UTC (9am Eastern in summer, 8am in
+winter) and can also be started by hand from the Actions tab, where it offers a
+`require_overlap` checkbox, an optional `seed` and a `dry_run` checkbox. Each run
+installs the dependencies and calls:
 
-It writes using the built-in `GITHUB_TOKEN` that Actions issues for the duration of the run, so there is no personal access token to create, approve or renew.
+```bash
+python -m app.cli run-round --source github-action --emails pairings.json
+```
 
-To read a round: **Actions** tab, then **Coffee Roulette pairing**, then the latest run. The summary lists each group with entity, team, a suggested time and topics.
+That command pairs whoever is active in Postgres, stores the round, prints the
+pairings into the run summary, writes the invitation payload and uploads both as
+a `pairings` artifact. Because the round is written to the database, nothing is
+committed back to the repository and the workflow only needs `contents: read`.
+
+A `dry_run` still prints and uploads the preview, but stores nothing and skips
+the mail step, so nobody is emailed about a round that did not happen.
+
+The one thing it needs is a `DATABASE_URL` secret (**Settings → Secrets and
+variables → Actions**). A run without it stops immediately with an error saying
+so, rather than pairing nobody.
+
+To read a round: the page at `/` shows the latest one, and the **Actions** tab
+keeps the plain-text version of every run.
 
 ## What is still manual
 
-Only the roster. `participants.csv` does not update itself, so new form responses have to reach the file before a round. Three ways, cheapest first.
+Almost nothing. Sign-ups write straight to Postgres through the form on the
+page, so there is no roster file to keep up to date and no copy-paste step
+before a round.
 
-1. **Paste the new rows.** Open the form results, copy the people who signed up since the last round, and add them to `participants.csv` in the browser. Availability can be pasted exactly as the form words it (`Monday morning`, `I am flexible / any time works`) because the parser normalises it. Takes a minute and needs no tokens.
-2. **Export the responses sheet.** Forms gives an Excel copy of every response; save it as CSV with the columns `name,entity,team,format,availability,topics,email` and replace the file. Better when several people joined at once.
-3. **Let a flow write it.** This is what the Power Automate flow was for. It currently fails at the "Get participants file" step with a 404 because the personal access token in the HTTP header cannot see this repository.
+What remains is judgement, not typing:
 
-Nothing breaks if the roster is stale: the round simply runs with whoever is already listed.
+- Deciding when to re-run a round with a different `seed`, or with
+  `require_overlap` on, after looking at a `dry_run` preview.
+- Removing someone who has left. There is no admin UI yet, so set their `active`
+  flag to false in the database: `UPDATE participants SET active = false WHERE
+  name = '...'`. Their past pairs still count as "already met", which is why the
+  row is deactivated rather than deleted.
+- Editing someone's availability or adding a missing email address, which are the
+  same kind of one-line update. `needsEmailAddress` in `pairings.json` says who
+  is missing one.
 
-## Fixing the flow
+The last two are the obvious next slice of work: an admin console that previews a
+round before publishing it, and lets People & Culture edit the roster.
 
-In order of how little they ask of the organisation:
+## The Microsoft Form and Power Automate
 
-- **Move the roster to Excel Online or a SharePoint list.** Forms writes there through a first-party connector with no token at all, and a workflow step (or a person) refreshes `participants.csv` from that sheet.
-- **Use the official GitHub connector** in Power Automate, which authenticates with an org-approved OAuth connection rather than a personal token, if that connector is permitted in the tenant.
-- **Keep the API approach** only if a fine-grained token can be issued for this repository, approved for the PurposeAdvisorSolutions organisation and SSO-authorised. Store it in a secure input, never in a plain header.
+The form can be retired in favour of the page, but it does not have to be. Two
+routes if it stays:
 
-Whichever route is taken, the token currently sitting in the flow run history should be revoked and replaced, because anyone who can open that run can read it.
+- **Point the flow at the API.** A Power Automate HTTP action can `POST` each new
+  response to `/api/participants`. Availability may be passed exactly as the form
+  words it — `Monday morning`, `I am flexible / any time works` — because the API
+  runs the same normaliser the CSV parser used.
+- **Keep collecting in Forms and add people by hand** until the page is the only
+  route in.
+
+Either way, the personal access token that used to sit in the flow's HTTP header
+is no longer needed for pairing, and the copy in the flow run history should be
+revoked: anyone who can open that run can read it.
 
 ## Emailing the pairings
 
@@ -50,7 +86,8 @@ Every round now produces two files:
 | `pairings.txt` | the readable report that lands in the run summary |
 | `pairings.json` | the same round as one invitation per group, ready to mail |
 
-`pairings.json` is written by `python pair.py --emails pairings.json` and looks like this:
+`pairings.json` is written by `--emails pairings.json`, on either
+`python pair.py` or `python -m app.cli run-round`, and looks like this:
 
 ```json
 {
@@ -74,9 +111,17 @@ Every round now produces two files:
 }
 ```
 
-Addresses come from the `email` column in `participants.csv`. Anyone without
-one is listed under `needsEmailAddress`, so a gap in the roster shows up as a
-note to the organiser rather than a silently skipped person.
+Addresses come from the `email` column in `participants.csv` when a round runs
+from the files, and from the sign-up form's email field when it runs from
+Postgres. The payload is identical either way, so the flow does not care which
+path ran. Anyone without an address is listed under `needsEmailAddress`, so a gap
+in the roster shows up as a note to the organiser rather than a silently skipped
+person.
+
+Addresses go in and out through this payload only. The API never returns them —
+`/api/participants` reports a `has_email` flag instead — because the page is
+unauthenticated, and a public list of colleagues' addresses is a different thing
+from a public list of names.
 
 ### The flow that sends them
 
@@ -108,3 +153,7 @@ payload can drive a Teams post instead of, or as well as, the emails.
 Power Automate is still the right home for the human-facing half. The pairing
 engine decides who meets whom and writes the invitation text; the flow decides
 how it reaches people. Neither half needs write access to the other.
+
+For anything that is not the weekly mail — a Teams post, a reminder a day later —
+a flow can also read `/api/rounds/current` instead of waiting to be handed the
+payload. That endpoint carries the groups, times and topics, but no addresses.

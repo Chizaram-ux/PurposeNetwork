@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coffee Roulette · Purpose-Network</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --ink: #17191c;
+    --muted: #5c626b;
+    --line: #e2e5ea;
+    --accent: #1f6f5c;
+    --accent-soft: #e8f2ef;
+    --warn-soft: #fdf1e3;
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a;
+      --card: #1c1f24;
+      --ink: #eceef1;
+      --muted: #a2a9b4;
+      --line: #2c3138;
+      --accent: #6fd1b4;
+      --accent-soft: #1d2c29;
+      --warn-soft: #2d251a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 32px 20px 72px; }
+  header { margin-bottom: 28px; }
+  h1 { font-size: 1.9rem; margin: 0 0 8px; letter-spacing: -0.02em; }
+  .tagline { color: var(--muted); margin: 0; max-width: 62ch; }
+  h2 { font-size: 1.15rem; margin: 32px 0 12px; }
+  .stats { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+  .stat {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 8px 14px; font-size: 0.85rem; color: var(--muted);
+  }
+  .stat b { color: var(--ink); font-size: 1.05rem; margin-right: 5px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 18px 20px; margin-bottom: 14px;
+  }
+  .group-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .group-head h3 { margin: 0; font-size: 1.05rem; }
+  .badge {
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+    background: var(--accent-soft); color: var(--accent); border-radius: 99px; padding: 3px 9px;
+  }
+  .members { list-style: none; margin: 12px 0 0; padding: 0; }
+  .members li { padding: 6px 0; border-top: 1px solid var(--line); }
+  .members .who { font-weight: 600; }
+  .members .where { color: var(--muted); font-size: 0.88rem; }
+  .facts { margin: 12px 0 0; display: grid; grid-template-columns: 84px 1fr; gap: 4px 10px; font-size: 0.9rem; }
+  .facts dt { color: var(--muted); }
+  .facts dd { margin: 0; }
+  details.why { margin-top: 10px; font-size: 0.85rem; color: var(--muted); }
+  details.why summary { cursor: pointer; }
+  .notice { background: var(--warn-soft); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  form { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
+  fieldset { border: 0; padding: 0; margin: 0 0 18px; }
+  legend, .label { font-weight: 600; font-size: 0.92rem; padding: 0; margin-bottom: 7px; display: block; }
+  .hint { color: var(--muted); font-size: 0.83rem; font-weight: 400; }
+  input[type=text], input[type=email], select {
+    width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px;
+    background: var(--bg); color: var(--ink); font: inherit; font-size: 0.95rem;
+  }
+  .row { display: flex; gap: 14px; flex-wrap: wrap; }
+  .row > div { flex: 1 1 220px; }
+  .grid { display: grid; grid-template-columns: auto repeat(2, minmax(64px, 1fr)); gap: 6px 12px; align-items: center; max-width: 340px; }
+  .grid .day { color: var(--muted); font-size: 0.9rem; }
+  .grid .col { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; text-align: center; }
+  .grid input { justify-self: center; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line);
+    border-radius: 99px; padding: 5px 12px; font-size: 0.88rem; cursor: pointer; background: var(--bg);
+  }
+  .chip input { margin: 0; }
+  label.inline { display: inline-flex; align-items: center; gap: 7px; font-size: 0.92rem; cursor: pointer; }
+  button {
+    background: var(--accent); color: #fff; border: 0; border-radius: 10px;
+    padding: 11px 20px; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: default; }
+  @media (prefers-color-scheme: dark) { button { color: #10201c; } }
+  .status { margin-top: 12px; font-size: 0.9rem; }
+  .status.ok { color: var(--accent); }
+  .status.bad { color: #c2453a; }
+  @media (prefers-color-scheme: dark) { .status.bad { color: #ff9a8f; } }
+  .roundpick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.9rem; color: var(--muted); }
+  .roundpick select { width: auto; }
+  footer { margin-top: 40px; color: var(--muted); font-size: 0.84rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Coffee Roulette</h1>
+    <p class="tagline">
+      Purpose-Network randomly pairs you with someone from a different team across
+      Purpose Unlimited, Purpose Investments, Driven and Harness for a casual
+      20-minute coffee chat each round. No prep, no agenda — just a real conversation.
+    </p>
+    <div class="stats" id="stats" hidden></div>
+  </header>
+
+  <section aria-labelledby="round-heading">
+    <h2 id="round-heading">This round</h2>
+    <div class="roundpick" id="roundpick" hidden>
+      <label for="round-select">Showing</label>
+      <select id="round-select"></select>
+    </div>
+    <div id="pairings"><p class="hint">Loading pairings…</p></div>
+  </section>
+
+  <section aria-labelledby="signup-heading">
+    <h2 id="signup-heading">Join the next round</h2>
+    <form id="signup" novalidate>
+      <div class="row">
+        <div>
+          <label class="label" for="name">Your name</label>
+          <input type="text" id="name" name="name" autocomplete="name" required>
+        </div>
+        <div>
+          <label class="label" for="entity">Company</label>
+          <select id="entity" name="entity" required></select>
+        </div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <div>
+          <label class="label" for="team">Team <span class="hint">(optional)</span></label>
+          <input type="text" id="team" name="team" placeholder="e.g. Fund Operations">
+        </div>
+        <div>
+          <label class="label" for="email">
+            Work email <span class="hint">so we can send the intro</span>
+          </label>
+          <input type="email" id="email" name="email" autocomplete="email"
+                 placeholder="you@purpose.ca">
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <span class="label">Chat format</span>
+        <div class="chips" id="formats"></div>
+      </div>
+
+      <fieldset style="margin-top:18px">
+        <legend>
+          When are you free?
+          <span class="hint">20 minutes is all it takes · <span id="tz-note">all times Eastern</span></span>
+        </legend>
+        <label class="inline" style="margin-bottom:10px">
+          <input type="checkbox" id="flexible"> I'm flexible — any time works
+        </label>
+        <div class="grid" id="slots"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>What would you like to talk about? <span class="hint">(optional)</span></legend>
+        <div class="chips" id="topics"></div>
+        <label class="label" for="topics-extra" style="margin-top:12px">
+          Anything else <span class="hint">separate with semicolons</span>
+        </label>
+        <input type="text" id="topics-extra" placeholder="Hiking; podcasts; moving to Toronto">
+      </fieldset>
+
+      <button type="submit" id="submit">Sign me up</button>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </form>
+  </section>
+
+  <footer>
+    Rounds run automatically every Monday morning. Questions? Ask People &amp; Culture.
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var api = {
+    get: function (path) {
+      return fetch(path, { headers: { "Accept": "application/json" } }).then(function (response) {
+        if (!response.ok) { return response.json().then(function (body) { throw body; }, function () { throw { detail: response.statusText }; }); }
+        return response.json();
+      });
+    },
+    post: function (path, body) {
+      return fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      }).then(function (response) {
+        return response.json().then(function (data) {
+          if (!response.ok) { throw data; }
+          return data;
+        });
+      });
+    }
+  };
+
+  // Build nodes rather than HTML strings: names come from sign-ups, so they are
+  // never treated as markup.
+  function el(tag, options) {
+    var node = document.createElement(tag);
+    options = options || {};
+    if (options.text !== undefined) { node.textContent = options.text; }
+    if (options.className) { node.className = options.className; }
+    Object.keys(options.attrs || {}).forEach(function (key) {
+      node.setAttribute(key, options.attrs[key]);
+    });
+    (options.children || []).forEach(function (child) { node.appendChild(child); });
+    return node;
+  }
+
+  function errorText(problem) {
+    if (!problem) { return "Something went wrong."; }
+    if (typeof problem.detail === "string") { return problem.detail; }
+    if (Array.isArray(problem.detail) && problem.detail.length) {
+      return problem.detail.map(function (item) { return item.msg; }).join("; ");
+    }
+    return "Something went wrong.";
+  }
+
+  // Filled in from /api/options, so the timezone wording is defined server-side
+  // in one place rather than repeated here.
+  var state = { slots: [], formats: [], timezone: "", timezoneShort: "" };
+
+  // ------------------------------------------------------------- pairings --
+
+  var pairings = document.getElementById("pairings");
+
+  function whenText(group) {
+    if (!group.shared_slots.length) { return "No shared slot — agree a time by email"; }
+    var shown = group.shared_slots.slice(0, 3).join(", ");
+    var extra = group.shared_slots.length - 3;
+    var more = extra > 0 ? " (+" + extra + " more)" : "";
+    var zone = state.timezoneShort ? " " + state.timezoneShort : "";
+    return shown + zone + more;
+  }
+
+  // The engine lower-cases formats so it can compare them; tidy that up for display.
+  function sentenceCase(text) {
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  function formatText(group) {
+    if (!group.formats.length) { return "Online"; }
+    if (group.formats.length === 1) { return sentenceCase(group.formats[0]) + " (all agree)"; }
+    return sentenceCase(group.formats.join(", ")) + " — default to online";
+  }
+
+  function topicsText(group) {
+    return group.shared_topics.length
+      ? group.shared_topics.join(", ")
+      : "No overlap — start anywhere";
+  }
+
+  function memberItem(member) {
+    var where = [member.entity, member.team].filter(Boolean).join(" / ") || "team unknown";
+    return el("li", { children: [
+      el("div", { className: "who", text: member.name }),
+      el("div", { className: "where", text: where })
+    ]});
+  }
+
+  function factRow(label, value) {
+    return [el("dt", { text: label }), el("dd", { text: value })];
+  }
+
+  function groupCard(group) {
+    var names = group.members.map(function (m) { return m.name; }).join(" + ");
+    var head = el("div", { className: "group-head", children: [el("h3", { text: names })] });
+    if (group.members.length === 3) {
+      head.appendChild(el("span", { className: "badge", text: "group of three" }));
+    }
+
+    var facts = el("dl", { className: "facts" });
+    factRow("When", whenText(group))
+      .concat(factRow("Format", formatText(group)))
+      .concat(factRow("Topics", topicsText(group)))
+      .forEach(function (node) { facts.appendChild(node); });
+
+    var children = [
+      head,
+      el("ul", { className: "members", children: group.members.map(memberItem) }),
+      facts
+    ];
+
+    if (group.score !== null && group.score_reasons.length) {
+      children.push(el("details", { className: "why", children: [
+        el("summary", { text: "Why this match?" }),
+        el("p", { text: group.score_reasons.join(", ") + " — score "
+          + Math.round(group.score * 10) / 10 })
+      ]}));
+    }
+    return el("div", { className: "card", children: children });
+  }
+
+  function renderRound(round) {
+    pairings.textContent = "";
+    var summary = round.headcount + " participants, " + round.group_count + " groups"
+      + (round.require_overlap ? ", overlapping availability required" : "");
+    pairings.appendChild(el("p", { className: "hint", text: summary }));
+    round.groups.forEach(function (group) { pairings.appendChild(groupCard(group)); });
+    if (round.unmatched.length) {
+      pairings.appendChild(el("div", { className: "notice", text:
+        "Not matched this round: " + round.unmatched.join(", ")
+        + ". More availability usually fixes this." }));
+    }
+  }
+
+  function showRound(path) {
+    api.get(path).then(renderRound).catch(function (problem) {
+      pairings.textContent = "";
+      pairings.appendChild(el("div", { className: "notice", text: errorText(problem) }));
+    });
+  }
+
+  function loadRoundPicker() {
+    api.get("/api/rounds?limit=12").then(function (list) {
+      if (list.length < 2) { return; }
+      var picker = document.getElementById("roundpick");
+      var select = document.getElementById("round-select");
+      list.forEach(function (round, index) {
+        select.appendChild(el("option", {
+          text: round.ran_on + (index === 0 ? " (latest)" : ""),
+          attrs: { value: String(round.id) }
+        }));
+      });
+      select.addEventListener("change", function () {
+        showRound("/api/rounds/" + encodeURIComponent(select.value));
+      });
+      picker.hidden = false;
+    }).catch(function () { /* the picker is a convenience; ignore failures */ });
+  }
+
+  function loadStats() {
+    api.get("/api/stats").then(function (data) {
+      var bar = document.getElementById("stats");
+      [["participants", "signed up"], ["rounds", "rounds run"],
+       ["connections", "connections made"]].forEach(function (entry) {
+        bar.appendChild(el("span", { className: "stat", children: [
+          el("b", { text: String(data[entry[0]]) }),
+          document.createTextNode(entry[1])
+        ]}));
+      });
+      bar.hidden = false;
+    }).catch(function () { /* stats are decorative */ });
+  }
+
+  // --------------------------------------------------------------- signup --
+
+  function buildForm(options) {
+    state.slots = options.slots;
+    state.formats = options.formats;
+    state.timezone = options.timezone_label;
+    state.timezoneShort = options.timezone_short;
+    document.getElementById("tz-note").textContent = "all times " + options.timezone_label;
+
+    var entity = document.getElementById("entity");
+    entity.appendChild(el("option", { text: "Choose…", attrs: { value: "" } }));
+    options.entities.forEach(function (name) {
+      entity.appendChild(el("option", { text: name, attrs: { value: name } }));
+    });
+
+    var formats = document.getElementById("formats");
+    options.formats.forEach(function (name, index) {
+      var input = el("input", { attrs: { type: "radio", name: "chat_format", value: name } });
+      if (index === 0) { input.checked = true; }
+      formats.appendChild(el("label", { className: "chip", children: [
+        input, document.createTextNode(name)
+      ]}));
+    });
+
+    buildSlotGrid(options.slots);
+
+    var topics = document.getElementById("topics");
+    options.topic_suggestions.forEach(function (topic) {
+      topics.appendChild(el("label", { className: "chip", children: [
+        el("input", { attrs: { type: "checkbox", value: topic, "data-topic": "1" } }),
+        document.createTextNode(topic)
+      ]}));
+    });
+  }
+
+  function buildSlotGrid(slots) {
+    var grid = document.getElementById("slots");
+    var days = [];
+    slots.forEach(function (slot) {
+      var day = slot.split(" ")[0];
+      if (days.indexOf(day) === -1) { days.push(day); }
+    });
+
+    grid.appendChild(el("span"));
+    ["AM", "PM"].forEach(function (block) {
+      grid.appendChild(el("span", { className: "col", text: block }));
+    });
+
+    days.forEach(function (day) {
+      grid.appendChild(el("span", { className: "day", text: day }));
+      ["AM", "PM"].forEach(function (block) {
+        var code = day + " " + block;
+        var input = el("input", {
+          attrs: { type: "checkbox", value: code, "data-slot": "1",
+                   "aria-label": code }
+        });
+        grid.appendChild(input);
+      });
+    });
+  }
+
+  function checkedValues(selector) {
+    return Array.prototype.slice.call(document.querySelectorAll(selector))
+      .filter(function (input) { return input.checked; })
+      .map(function (input) { return input.value; });
+  }
+
+  function slotInputs() {
+    return Array.prototype.slice.call(document.querySelectorAll("[data-slot]"));
+  }
+
+  document.getElementById("flexible").addEventListener("change", function (event) {
+    slotInputs().forEach(function (input) {
+      input.checked = event.target.checked;
+      input.disabled = event.target.checked;
+    });
+  });
+
+  var status = document.getElementById("status");
+
+  function say(message, kind) {
+    status.textContent = message;
+    status.className = "status " + (kind || "");
+  }
+
+  document.getElementById("signup").addEventListener("submit", function (event) {
+    event.preventDefault();
+    var flexible = document.getElementById("flexible").checked;
+    var availability = flexible ? state.slots.slice() : checkedValues("[data-slot]");
+    var extras = document.getElementById("topics-extra").value
+      .split(";").map(function (part) { return part.trim(); }).filter(Boolean);
+
+    var payload = {
+      name: document.getElementById("name").value.trim(),
+      entity: document.getElementById("entity").value,
+      team: document.getElementById("team").value.trim(),
+      email: document.getElementById("email").value.trim(),
+      chat_format: (checkedValues("[name=chat_format]")[0] || state.formats[0] || "Online"),
+      availability: availability,
+      topics: checkedValues("[data-topic]").concat(extras)
+    };
+
+    if (!payload.name) { return say("Please add your name.", "bad"); }
+    if (!payload.entity) { return say("Please choose your company.", "bad"); }
+    if (!payload.availability.length) {
+      return say("Pick at least one time slot, or tick “I'm flexible”.", "bad");
+    }
+
+    var button = document.getElementById("submit");
+    button.disabled = true;
+    say("Signing you up…");
+    api.post("/api/participants", payload).then(function (person) {
+      say("You're in, " + person.name + ". You'll be matched in the next round.", "ok");
+      document.getElementById("signup").reset();
+      slotInputs().forEach(function (input) { input.disabled = false; });
+      loadStats();
+    }).catch(function (problem) {
+      say(errorText(problem), "bad");
+    }).then(function () {
+      button.disabled = false;
+    });
+  });
+
+  // ----------------------------------------------------------------- boot --
+
+  // Options first, so the timezone label is known before any slot is displayed;
+  // the round still renders if that call fails.
+  api.get("/api/options").then(buildForm).catch(function () {
+    say("The sign-up form could not load. Please refresh.", "bad");
+  }).then(function () {
+    showRound("/api/rounds/current");
+    loadRoundPicker();
+    loadStats();
+  });
+})();
+</script>
+</body>
+</html>

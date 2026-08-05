@@ -15,9 +15,14 @@ on:
         description: Optional seed for a reproducible shuffle (leave blank for random)
         type: string
         default: ""
+      dry_run:
+        description: Preview the pairings without storing the round or mailing anyone
+        type: boolean
+        default: false
 
+# The roster and the rounds live in Postgres, so nothing is committed back here.
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: coffee-roulette
@@ -37,23 +42,40 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
 
-      - name: Run the pairing script
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Check the database secret is set
         env:
-          # On a scheduled run these are empty, so the script uses its defaults.
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::DATABASE_URL secret is not set. Add it in Settings > Secrets > Actions."
+            exit 1
+          fi
+
+      - name: Run the pairing round
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # On a scheduled run these are empty, so the command uses its defaults.
           REQUIRE_OVERLAP: ${{ inputs.require_overlap }}
           SEED: ${{ inputs.seed }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
           set -o pipefail
-          ARGS=()
+          ARGS=(--source github-action --emails pairings.json)
           if [ "$REQUIRE_OVERLAP" = "true" ]; then
             ARGS+=(--require-overlap)
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            ARGS+=(--dry-run)
           fi
           if [ -n "$SEED" ]; then
             ARGS+=(--seed "$SEED")
           fi
-          ARGS+=(--emails pairings.json)
-          python pair.py "${ARGS[@]}" | tee pairings.txt
+          python -m app.cli run-round "${ARGS[@]}" | tee pairings.txt
 
       - name: Publish the pairings to the run summary
         run: |
@@ -75,6 +97,8 @@ jobs:
           retention-days: 90
 
       - name: Hand the invitations to Power Automate
+        # A preview must not mail anyone, so this is skipped on a dry run.
+        if: ${{ inputs.dry_run != true }}
         env:
           # Repository secret holding the HTTP trigger URL of the mail flow.
           FLOW_URL: ${{ secrets.COFFEE_FLOW_URL }}
@@ -87,15 +111,3 @@ jobs:
             -H "Content-Type: application/json" \
             --data-binary @pairings.json
           echo "Handed the invitations to the flow."
-
-      - name: Commit the updated history.json
-        run: |
-          if git diff --quiet -- history.json; then
-            echo "history.json did not change; nothing to commit."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add history.json
-          git commit -m "Record coffee roulette round $(date -u +%Y-%m-%d)"
-          git push

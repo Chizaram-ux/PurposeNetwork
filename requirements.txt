@@ -1,0 +1,10 @@
+# Web app dependencies. pair.py itself needs nothing beyond the standard library.
+fastapi>=0.110
+uvicorn[standard]>=0.27
+sqlalchemy>=2.0
+psycopg[binary]>=3.1
+pydantic>=2.6
+
+# Tests run against SQLite, so they need no extra driver.
+pytest>=8.0
+httpx>=0.27
