@@ -52,6 +52,7 @@ jobs:
           if [ -n "$SEED" ]; then
             ARGS+=(--seed "$SEED")
           fi
+          ARGS+=(--emails pairings.json)
           python pair.py "${ARGS[@]}" | tee pairings.txt
 
       - name: Publish the pairings to the run summary
@@ -68,8 +69,24 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pairings
-          path: pairings.txt
+          path: |
+            pairings.txt
+            pairings.json
           retention-days: 90
+
+      - name: Hand the invitations to Power Automate
+        env:
+          # Repository secret holding the HTTP trigger URL of the mail flow.
+          FLOW_URL: ${{ secrets.COFFEE_FLOW_URL }}
+        run: |
+          if [ -z "$FLOW_URL" ]; then
+            echo "No COFFEE_FLOW_URL secret set; skipping the email step."
+            exit 0
+          fi
+          curl --fail --silent --show-error -X POST "$FLOW_URL" \
+            -H "Content-Type: application/json" \
+            --data-binary @pairings.json
+          echo "Handed the invitations to the flow."
 
       - name: Commit the updated history.json
         run: |
