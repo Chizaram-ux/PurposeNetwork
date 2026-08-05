@@ -7,7 +7,7 @@ There are two halves. `pair.py` is the pairing engine — standard library only,
 ## The web app
 
 ```bash
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 export DATABASE_URL=postgresql://localhost/purposenetwork
 
 python3 -m app.cli init-db          # create the tables
