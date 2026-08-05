@@ -44,11 +44,11 @@ Maya Hollander,Purpose Unlimited,People & Culture,Online,Mon PM;Wed PM;Fri PM,Ca
 ## Running a round
 
 ```
-python pair.py                     # smart pairing, avoids past pairs
-python pair.py --require-overlap   # only pair people who share a time slot
-python pair.py --seed 42           # reproducible tie-breaking
-python pair.py --explain           # show the score and reasons behind each match
-python pair.py --no-history        # preview a round without reading or updating history.json
+python3 pair.py                     # smart pairing, avoids past pairs
+python3 pair.py --require-overlap   # only pair people who share a time slot
+python3 pair.py --seed 42           # reproducible tie-breaking
+python3 pair.py --explain           # show the score and reasons behind each match
+python3 pair.py --no-history        # preview a round without reading or updating history.json
 ```
 
 Flags combine, for example `python pair.py --require-overlap --explain`.
