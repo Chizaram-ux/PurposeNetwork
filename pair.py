@@ -18,6 +18,7 @@ Usage:
     python pair.py                     # smart pairing, avoids past pairs
     python pair.py --require-overlap   # only pair people who share a time slot
     python pair.py --seed 42           # reproducible tie-breaking
+    python pair.py --emails mail.json   # write the email payload for Power Automate
     python pair.py --explain           # show the score behind each match
     python pair.py --no-history        # do not read or update history.json
 """
@@ -64,6 +65,7 @@ class Participant:
     entity: str = ""
     team: str = ""
     chat_format: str = ""
+    email: str = ""
     slots: frozenset = frozenset()
     topics: Tuple[str, ...] = ()
 
@@ -186,6 +188,7 @@ def participant_from_row(row: Dict[str, str]) -> Participant:
         entity=value("entity"),
         team=value("team"),
         chat_format=value("format"),
+        email=value("email"),
         slots=frozenset(FormAnswers.slots(value("availability"))),
         topics=FormAnswers.values(value("topics")),
     )
@@ -511,6 +514,7 @@ class RoundConfig:
     seed: Optional[int] = None
     explain: bool = False
     keep_history: bool = True
+    emails: Optional[str] = None
 
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> "RoundConfig":
@@ -519,6 +523,7 @@ class RoundConfig:
             seed=args.seed,
             explain=args.explain,
             keep_history=not args.no_history,
+            emails=args.emails,
         )
 
     @property
@@ -582,6 +587,85 @@ def unmatched_lines(result: RoundResult, config: RoundConfig) -> List[str]:
     return ["Unmatched this round: " + names] + ([tip] if config.require_overlap else [])
 
 
+# -------------------------------------------------------------- invites ---
+
+
+ORGANISER_NOTE = (
+    "Reply to all to agree a time. Fifteen minutes is plenty - "
+    "this is a chat, not a meeting."
+)
+
+
+@dataclass(frozen=True)
+class Invitation:
+    """One group turned into an email, as data. Sending is another layer."""
+
+    index: int
+    report: GroupReport
+
+    @property
+    def names(self) -> Tuple[str, ...]:
+        return tuple(member.name for member in self.report.members)
+
+    @property
+    def recipients(self) -> Tuple[str, ...]:
+        return tuple(m.email for m in self.report.members if m.email)
+
+    @property
+    def missing(self) -> Tuple[str, ...]:
+        return tuple(m.name for m in self.report.members if not m.email)
+
+    def subject(self) -> str:
+        return "Coffee Roulette: " + " + ".join(self.names)
+
+    def paragraphs(self) -> List[str]:
+        greeting = "Hi " + ", ".join(self.names) + " - you have been matched for this round of Virtual Coffee Roulette."
+        return [
+            greeting,
+            "Suggested time: " + self.report.when_text(),
+            "Format: " + (self.report.format_text() or "your call"),
+            "Talk about: " + self.report.topics_text(),
+            ORGANISER_NOTE,
+        ]
+
+    def as_dict(self) -> Dict[str, object]:
+        return {
+            "group": self.index,
+            "names": list(self.names),
+            "to": list(self.recipients),
+            "missingEmail": list(self.missing),
+            "subject": self.subject(),
+            "body": (chr(10) + chr(10)).join(self.paragraphs()),
+            "when": self.report.when_text(),
+            "format": self.report.format_text(),
+            "topics": list(self.report.topics),
+        }
+
+
+def invitations(result: RoundResult) -> List[Invitation]:
+    return [Invitation(i, report) for i, report in enumerate(result.reports, 1)]
+
+
+def email_payload(result: RoundResult) -> Dict[str, object]:
+    invites = invitations(result)
+    return {
+        "round": date.today().isoformat(),
+        "groups": len(invites),
+        "invitations": [invite.as_dict() for invite in invites],
+        "unmatched": [person.name for person in result.unmatched],
+        "needsEmailAddress": sorted({name for invite in invites for name in invite.missing}),
+    }
+
+
+def write_invitations(result: RoundResult, path: str) -> str:
+    payload = email_payload(result)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2)
+    missing = payload["needsEmailAddress"]
+    tail = " Missing addresses: " + ", ".join(missing) if missing else ""
+    return "Wrote " + str(payload["groups"]) + " invitations to " + path + "." + tail
+
+
 # ---------------------------------------------------------------- the cli --
 
 
@@ -595,6 +679,8 @@ def parse_args(argv=None) -> argparse.Namespace:
                         help="show the score and reasons behind each match")
     parser.add_argument("--no-history", action="store_true",
                         help="ignore and do not update history.json")
+    parser.add_argument("--emails", metavar="FILE", default=None,
+                        help="write the per-group email payload as JSON")
     return parser.parse_args(argv)
 
 
@@ -611,6 +697,9 @@ def main(argv=None) -> int:
     result = CoffeeRound(people, history, config).run()
     for line in render(result, config, len(people)):
         print(line)
+
+    if config.emails:
+        print(write_invitations(result, config.emails))
 
     history.record(result.groups, result.unmatched, date.today().isoformat())
     print(history.save())
